@@ -48,8 +48,8 @@ def process_dicom(dicom_path, if_xnat=False, rgb=True):
 		session = xnat.connect('http://rufus.stanford.edu', user='admin', password='admin') #make XNAT connection
 		scan = session.projects[d[3]].subjects[d[5]].experiments[d[7]].scans[d[9]]
 		dicom = scan.read_dicom(read_pixel_data=True)
-		print(dicom)
 		session.disconnect()
+		print(dicom)
 	else:
 		dicom = pydicom.read_file(dicom_path)
 		
@@ -74,6 +74,7 @@ def process_dicom(dicom_path, if_xnat=False, rgb=True):
 			bsb_img[:, :, 2] = MR_img
 			return bsb_img
 	print('The provided dicom is not the specified CT or MRI images')
+		
 	return None
 
 
