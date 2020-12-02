@@ -35,7 +35,6 @@ def make_dataset(dir):
     return images
 
 
-
 def make_dataset_dicom(dir, opt, phase):
     images = []
     assert os.path.isdir(dir), '%s is not a valid data directory' % dir
@@ -51,7 +50,7 @@ def make_dataset_dicom(dir, opt, phase):
                     # sys.exit(3)
                 if opt.names_phase[fname] == phase:
                     path = os.path.join(root, fname)
-                    Img = process_dicom(path)
+                    Img = process_dicom(path, False)
                     if Img is not None:
                         images.append(path)
 
@@ -73,18 +72,20 @@ def make_dataset_XNAT(project, opt, phase):
             for sc in scans:
                 my_file = scans[sc].resources['DICOM'].files[0]
                 fname = my_file.data['Name']
+                path = my_file.uri
 
                 #save images whose filenames are in phase
-                try:
-                    opt.names_phase[fname]
-                except:
-                    print('Error: we donot find the phase for file name' , fname, 'ignore this file')
-                    continue
-                    # sys.exit(3)
-                if opt.names_phase[fname] == phase:
-                    Img = process_dicom(my_file)
-                    if Img is not None:
-                        images.append([fname, my_file]) #each image list item has filename + FileData obj
+                if fname.endswith('.dcm'):
+                    try:
+                        opt.names_phase[fname]
+                    except:
+                        print('Error: we donot find the phase for file name' , fname, 'ignore this file')
+                        continue
+                        # sys.exit(3)
+                    if opt.names_phase[fname] == phase:
+                        Img = process_dicom(path, True)
+                        if Img is not None:
+                            images.append(path) #each image list item has filename + FileData obj
 
     return images
 
@@ -95,6 +96,7 @@ class DatasetDist(data.Dataset):
         if opt.xnat_proj_id == '':
             #self.img_paths = make_dataset_dicom(os.path.join(opt.data_path, folder))
             self.img_paths = make_dataset_dicom(opt.data_path, opt, phase)
+            self.is_xnat = False
         else:
             self.img_paths = make_dataset_XNAT(opt.xnat_proj_id, opt, phase)
             self.is_xnat = True
@@ -121,29 +123,24 @@ class DatasetDist(data.Dataset):
         self.transform = data_transforms
 
     def __getitem__(self, index):
-        if self.is_xnat:
-            name = self.img_paths[index][0] #the name
-            my_file = self.img_paths[index][1] #fileData obj
-        else:
-            name = self.img_paths[index] #local file path
-            my_file = self.img_paths[index] #local file path
+        name = self.img_paths[index]
 
         if name.endswith('.npy'):
-            Img = np.load(my_file)
+            Img = np.load(name)
             Img = (Img - Img.min()) / (Img.max() - Img.min()) * 224
             Img = Image.fromarray(Img.astype('uint8'))
         elif name.endswith('.dcm'):
-            Img = process_dicom(my_file)
+            Img = process_dicom(name, self.is_xnat)
             Img = Img * 255
             Img = Image.fromarray(Img.astype('uint8'))
 
         else:
-            Img = Image.open(my_file).convert('RGB')
+            Img = Image.open(name).convert('RGB')
 
         input = self.transform(Img)
         if input.shape[0] == 1:
             input = torch.cat([input, input, input])
-        tmp_label = self.labels[name]
+        tmp_label = self.labels[os.path.basename(name)]
 
         if self.opt.regression:
             label = torch.FloatTensor(1)
