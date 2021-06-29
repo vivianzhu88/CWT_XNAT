@@ -4,9 +4,6 @@ import numpy as np
 WINDOW_CENTER	= 50
 WINDOW_WIDTH	= 100
 
-import xnat
-import os
-
 def get_first_of_dicom_field_as_int(x):
     #get x[0] as in int is x is a 'pydicom.multival.MultiValue', otherwise get int(x)
     if type(x) == pydicom.multival.MultiValue:
@@ -42,18 +39,7 @@ def get_MRI_gray_img(dicom):
 	except:
 		return None
 
-def process_dicom(dicom_path, if_xnat=False, rgb=True):
-	if if_xnat == True:
-		d = dicom_path.split('/')
-		session = xnat.connect('http://rufus.stanford.edu', user='admin', password='admin') #make XNAT connection
-		scan = session.projects[d[3]].subjects[d[5]].experiments[d[7]].scans[d[9]]
-		dicom = scan.read_dicom(read_pixel_data=True)
-		session.disconnect()
-		print(dicom)
-	else:
-		dicom = pydicom.read_file(dicom_path)
-		
-
+def process_dicom(dicom, rgb=True):
 	brain_img = get_gray_img(dicom, 40, 80)
 	subdural_img = get_gray_img(dicom, 80, 200)
 	bone_img = get_gray_img(dicom, 600, 2000)
